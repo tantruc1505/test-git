@@ -48,7 +48,7 @@ export class QuotationConfig {
     this.initializeLists();
     this.setupLists();
     this.setupDefaultLists();
-    this.usedYearList = this.getUsedYearList(1900);
+    this.usedYearList = this.getUsedYearList();
   }
 
   private initializeLists(): void {
