@@ -1,15 +1,24 @@
-import { DataPoolService } from "src/app/shared/services/data-pool/data-pool.service";
 import { Injectable } from "@angular/core";
-import { AllSelectdataService, SRC_DATA } from "src/app/core/services/db/selectdata/all_selectdata.service";
-import { element } from "protractor";
+import { DataPoolService } from "src/app/shared/services/data-pool/data-pool.service";
 
-type TSelect = Array<{ text: string; value: number | string }>;
+export type TSelect = Array<{ text: string; value: number | string }>;
+
+export const VEHICLE_TYPE_CARGO = "42";
+
+export const LIST_HIDE_ADD_TERM = [3, 4, 5, 7 ,11, 12];
+
+export enum PAY_OPTIONS {
+  AGENT = "0",
+  CUSTOMER = "1",
+}
 
 @Injectable({
   providedIn: "root",
 })
 export class QuotationConfig {
   sentence;
+  PAY_OPTIONS = PAY_OPTIONS
+
   vehicleFamilyList = [];
 
   vehicleBrandList = [];
@@ -40,21 +49,32 @@ export class QuotationConfig {
 
   passengerAmtList: TSelect = [];
 
-  constructor(private allSelectDataService: AllSelectdataService, private dataPoolService: DataPoolService) {
-    const { quotation } = this.dataPoolService.gLang;
+  countriesList: any = []
+
+  methodList: TSelect = [];
+
+  language = this.dataPool.gLangType;
+
+  allSelectData: any
+  constructor(private dataPool: DataPoolService) {
+    const { quotation , payment} = this.dataPool.gLang;
     this.sentence = {
       quotation,
+      payment
     };
-    this.initializeLists();
+  }
+
+  initializeLists(allSelectData: any): void {
+    console.log("1.DATA SELECT C1")
+    this.allSelectData = allSelectData;
+    this.usedYrList = this.getListYears(15);
+    this.vehicleFamilyList = this.geVehicleFamilyList();
+    this.vehicleFamilyList.sort((a, b)=> a.text.localeCompare(b.text, undefined, { sensitivity: 'base' }));
+    this.vehicleBrandList = this.getVehicleBrandList();
+    this.vehicleBrandList.sort((a, b)=> a.text.localeCompare(b.text, undefined, { sensitivity: 'base' }));
     this.setupLists();
     this.setupDefaultLists();
     this.usedYearList = this.getUsedYearList(2000);
-  }
-
-  private initializeLists(): void {
-    this.usedYrList = this.getListYears(15);
-    this.vehicleFamilyList = this.geVehicleFamilyList();
-    this.vehicleBrandList = this.getVehicleBrandList();
   }
 
   private getListYears(yearsToInclude: number = 100): Array<{ text: string; value: string }> {
@@ -63,55 +83,51 @@ export class QuotationConfig {
     return Array.from({ length: yearsToInclude + 1 }, (_, i) => {
       const year = currentYear - i;
       return { text: year.toString(), value: year.toString() };
-    });
+    }).sort((a, b) => +a.value - +b.value);
   }
 
-  getUsedYearList(yearUsedYr) {
-    // const currentYear = new Date().getFullYear();
-    // const usedEnd = Number(currentYear) - Number(yearUsedYr);
-    // const yearsList = [];
-    // for (let step = 1; step <= usedEnd; step++) {
-    //   const stepStr = step.toString();
-    //   yearsList.push({ text: `${stepStr} ${this.sentence.quotation.select_list.sl00005}`, value: stepStr });
-    // }
+  getUsedYearList() {
+
     const yearsList = [
-      { text: "Dưới 3 năm", value: "2" },
-      { text: "Từ 03 đến dưới 6 năm", value: "5" },
-      { text: "Từ 06 đến 10 năm", value: "7" },
-      { text: "Từ 10 đến dưới 15 năm", value: "12" },
+      { text: this.sentence.quotation.select_list.sl00006 , value: "f00t03" },
+      { text: this.sentence.quotation.select_list.sl00007, value: "f03to06" },
+      { text: this.sentence.quotation.select_list.sl00008, value: "f06to10" },
+      { text: this.sentence.quotation.select_list.sl00009, value: "f10to15" },
     ];
     return yearsList;
   }
 
   private setupInsurancePeriodList(): TSelect {
     return [
-      { text: "1 năm", value: 1 },
-      { text: "2 năm", value: 2 },
-      { text: "3 năm", value: 3 },
+      { text: this.sentence.quotation.select_list.sl00010, value: 1 },
+      { text: this.sentence.quotation.select_list.sl00012, value: 2 },
+      { text: this.sentence.quotation.select_list.sl00012, value: 3 },
     ];
   }
 
   private setupLists(): void {
-    this.vehicleTypeList = this.allSelectDataService.allSelectdata.vechicleKdCarList
+    this.vehicleTypeList = this.allSelectData.vechicleKdCarList
       .filter((item) => [21, 22, 31, 41, 42].includes(item.seqNo))
       .map((item) => ({
         ...item,
         ...this.getLocalizedNames(item.zhName || "", item.vnName || "", item.vechicleKdValue),
       }));
-    this.carPwrKdList = this.allSelectDataService.allSelectdata.vehicleUseCarList.map((item) => ({
+    this.carPwrKdList = this.allSelectData.vehicleUseCarList.map((item) => ({
       ...item,
       ...this.getLocalizedNames(item.zhName || "", item.vnName || "", item.carPwrKdValue),
     }));
-    this.maxLoadList = this.allSelectDataService.allSelectdata.loadList.map((item) => ({
+    this.maxLoadList = this.allSelectData.loadList.map((item) => ({
       ...item,
       ...this.getLocalizedNames(item.zhName || "", item.vnName || "", item.loadValue),
     }));
     this.insurancePeriodList = this.setupInsurancePeriodList();
     this.carPhysicalDeclarationPageList = this.setupCarPhysicalDeclarationPageList();
-    this.additionalTermsList = this.additionalTermsListData();
+    this.additionalTermsList = this.additionalTermsListData(12).filter(item => !LIST_HIDE_ADD_TERM.includes(+item.value));
     this.discRateAdditList = this.getDiscRateAdditList(0, 70, 10);
     this.ddcbAmtList = this.setupDdcbAmtList(1000000, 7000000, 1000000);
     this.passengerAmtList = this.getPassengerAmtList(10000000, 200000000, 10000000);
+    this.countriesList = this.getCountiesList()
+    this.methodList = this.getMethodList()
   }
 
   private getLocalizedNames(
@@ -119,7 +135,7 @@ export class QuotationConfig {
     vnName: string,
     value: string | number
   ): { text: string; value: string | number } {
-    const text = this.dataPoolService.gLangType === "zh-TW" ? zhName : vnName;
+    const text = this.dataPool.gLangType === "zh-TW" ? zhName : vnName;
     return { text, value };
   }
 
@@ -137,10 +153,10 @@ export class QuotationConfig {
     ];
   }
 
-  private additionalTermsListData(): TSelect {
-    return Array.from({ length: 12 }, (_, i) => {
+  private additionalTermsListData(quantityAdd: number): TSelect {
+    return Array.from({ length: quantityAdd }, (_, i) => {
       const value = i + 1;
-      return { text: this.sentence.quotation.step[`sp000${49 + i}`], value };
+      return { text: this.sentence.quotation.add_term_list[`atl000${value.toString().length > 1 ? value : ('0' + value)}`], value };
     });
   }
 
@@ -165,6 +181,24 @@ export class QuotationConfig {
     });
   }
 
+
+  private getCountiesList() {
+    return this.allSelectData.countyList.map((item) => {
+      return {
+        ...item,
+        text:
+          this.dataPool.gLangType === "zh-TW"
+            ? `${item.countyZhname || ""}, ${item.provinceZhname || ""}`
+            : `${item.countyVnname || ""}, ${item.provinceVnname || ""}`,
+        value: String(item.id),
+      };
+    });
+  }
+
+  private getMethodList() {
+    return [{ text: this.sentence.payment.p0001, value: PAY_OPTIONS.AGENT }, { text: this.sentence.payment.p0002, value: PAY_OPTIONS.CUSTOMER }]
+  }
+
   isAdditionalTerms(valueTerm: number, data: TSelect): boolean {
     return data?.some((item) => item.value === valueTerm);
   }
@@ -174,11 +208,11 @@ export class QuotationConfig {
   }
 
   private geVehicleFamilyList() {
-    return this.allSelectDataService.allSelectdata.vehicleFamilyList
+    return this.allSelectData.vehicleFamilyList
       .map((item) => {
         return {
           ...item,
-          text: this.dataPoolService.gLangType === "zh-TW" ? `${item.zhName || ""}` : `${item.vnName || ""}`,
+          text: this.dataPool.gLangType === "zh-TW" ? `${item.zhName || ""}` : `${item.vnName || ""}`,
           value: item.vehicleFamilyValue,
         };
       })
@@ -189,11 +223,11 @@ export class QuotationConfig {
       });
   }
   private getVehicleBrandList() {
-    return this.allSelectDataService.allSelectdata.vehicleBrandList
+    return this.allSelectData.vehicleBrandList
       .map((item) => {
         return {
           ...item,
-          text: this.dataPoolService.gLangType === "zh-TW" ? `${item.zhName || ""}` : `${item.vnName || ""}`,
+          text: this.dataPool.gLangType === "zh-TW" ? `${item.zhName || ""}` : `${item.vnName || ""}`,
           value: item.vechicleBrandValue,
         };
       })
@@ -203,4 +237,39 @@ export class QuotationConfig {
         return isAIC && isShow;
       });
   }
+
+  public pushToListIfMatch(msg: string, suffix: string): boolean {
+    return msg.includes(suffix)
+  }
+
+
+  public blobToFile = (theBlob: Blob, fileName: string): File => {
+    const b: any = theBlob;
+    b.lastModifiedDate = new Date();
+    b.name = fileName;
+    return theBlob as File;
+  }
+
+  getListNameTerm(){
+    return [
+      this.sentence.quotation.detail.dt0065,
+      this.sentence.quotation.detail.dt0066,
+      this.sentence.quotation.detail.dt0067,
+      this.sentence.quotation.detail.dt0068,
+      this.sentence.quotation.detail.dt0069,
+      this.sentence.quotation.detail.dt0070,
+      this.sentence.quotation.detail.dt0071,
+      this.sentence.quotation.detail.dt0072,
+      this.sentence.quotation.detail.dt0073,
+      this.sentence.quotation.detail.dt0074,
+      this.sentence.quotation.detail.dt0075,
+      this.sentence.quotation.detail.dt0076,
+    ]
+  }
+}
+
+
+export enum SRC_DATA  {
+  AIC = 'AIC',
+  CATHAY = 'CATHAY',
 }
